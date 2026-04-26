@@ -441,7 +441,7 @@
           <div>Upload your floor plan and the AI will automatically read the address to determine the county, then extract all window marks, door marks, room labels, egress notes, and dimensions.</div>
         </div>
 
-        <div class="upload-zone" id="uploadZone" onclick="document.getElementById('fileInput').click()">
+        <div class="upload-zone" id="uploadZone">
           <input type="file" id="fileInput" accept=".pdf,.png,.jpg,.jpeg,.webp" onchange="handleFileSelect(event)">
           <div class="upload-icon">
             <svg viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="12" y1="18" x2="12" y2="12"/><line x1="9" y1="15" x2="12" y2="12"/><line x1="15" y1="15" x2="12" y2="12"/></svg>
@@ -1040,12 +1040,22 @@ async function callClaudeAPI() {
     const systemPrompt = `You are an expert at reading construction floor plans for window and door permit applications in South Florida (Broward, Miami-Dade, Palm Beach, Monroe counties). Respond ONLY with valid JSON, no markdown, no explanation.\n\nReturn this exact JSON structure:\n{\n  "address": "full address or empty string",\n  "county": "Broward|Miami-Dade|Palm Beach|Monroe|Unknown",\n  "openings": [\n    { "mark": "W1", "type": "WINDOW", "width": "3/0", "height": "4/6", "room": "Master Bedroom", "egress": "NO", "notes": "", "confidence": "HIGH" }\n  ],\n  "rooms": ["Master Bedroom", "Kitchen"],\n  "structuralNotes": ["note text"]\n}\n\nCounty rules: Fort Lauderdale/Pembroke Pines/Miramar/Hollywood/Coral Springs/Pompano=Broward; Miami/Hialeah/Coral Gables/Doral/Kendall=Miami-Dade; West Palm Beach/Boca Raton/Delray Beach/Boynton Beach=Palm Beach; Key West/Marathon/Key Largo=Monroe.\n\nExtract ALL window marks (W1,W2...) and door marks (D1,D2...). Only mark egress=YES if the word EGRESS is literally on the plan. Be thorough.
 
 CRITICAL FOR DIMENSIONS: Copy dimensions EXACTLY as written on the plan. Do NOT convert or reformat them.
-- If the plan says 74x50 5/8 — write exactly 74x50 5/8
-- If the plan says 36x80 — write exactly 36x80
-- If the plan says 3/0x6/8 — write exactly 3/0x6/8
-- Never convert inches to feet or change the format in any way
+- Numbers like 74, 53, 37 are whole inch measurements — NEVER convert to feet or fractions like 7/4 or 5/3
+- A two-digit number followed by x is ALWAYS whole inches (74 = seventy-four inches, NOT 7 and 1/4)
+- Copy fractions like 5/8 and 3/8 exactly as written (e.g. 74x50 5/8 stays as 74x50 5/8)
+- If digits are touching like 505/8, read it as 50 5/8 (a whole number plus a fraction)
 - Width goes in the width field, height goes in the height field
-- If only one dimension is visible, put it in width and leave height blank`;
+
+CRITICAL FOR OPERATION TYPE (XO, OX, XX, etc.):
+- XO, OX, XX, OO refer to which panel of the window opens — this is the operation type
+- Record the operation type in the notes field (e.g. notes: "XO")
+- Do NOT include XO or operation type in the width or height fields
+
+CRITICAL FOR GROUPED MARKS:
+- Multiple marks in one circle (e.g. 14,15,16,17) mean multiple windows with identical specs
+- Create a separate row for EACH mark number (W14, W15, W16, W17) all with the same size
+- "all 4" or similar text next to a group means the shown size applies to all marks in that group
+- Quantity for each individual mark is 1 — do not combine them into one row`;
 
     const userMessage = (state.manufacturer || state.series)
       ? `Manufacturer: ${state.manufacturer || 'Unknown'}\nSeries: ${state.series || 'Unknown'}\n\nAnalyze this floor plan.`
@@ -1441,9 +1451,10 @@ function generateSchedulePDF() {
     doc.setTextColor(o.type === 'WINDOW' ? 30 : 232, o.type === 'WINDOW' ? 58 : 81, o.type === 'WINDOW' ? 95 : 26);
 
     let dx = margin;
+    const cleanNotes = (o.notes||'').replace(/XO|OX|XX|OO/gi,'').trim();
     const rowData = isBroward
-      ? [o.mark, '1', o.width||'', o.height||'', o.type, state.manufacturer||'', state.series||'', '', 'YES', o.egress||'NO', o.room||'', o.notes||'']
-      : [o.mark, '1', o.width||'', o.height||'', o.type, state.manufacturer||'', state.series||'', '', 'YES', o.egress||'NO', o.notes||''];
+      ? [o.mark, '1', o.width||'', o.height||'', o.type, state.manufacturer||'', state.series||'', '', 'YES', o.egress||'NO', o.room||'', cleanNotes]
+      : [o.mark, '1', o.width||'', o.height||'', o.type, state.manufacturer||'', state.series||'', '', 'YES', o.egress||'NO', cleanNotes];
 
     rowData.forEach((val, ci) => {
       if (ci > 0) {

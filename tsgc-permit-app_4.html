@@ -1,0 +1,1539 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>TSGC Permit System</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500;600;700&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  :root {
+    --navy: #1e3a5f;
+    --navy-light: #2a4f7c;
+    --navy-dark: #142844;
+    --orange: #e8511a;
+    --orange-light: #f06a35;
+    --orange-dim: rgba(232,81,26,0.12);
+    --cream: #faf8f5;
+    --white: #ffffff;
+    --gray-50: #f8f9fa;
+    --gray-100: #f0f2f5;
+    --gray-200: #e2e8f0;
+    --gray-400: #94a3b8;
+    --gray-600: #64748b;
+    --gray-800: #1e293b;
+    --green: #16a34a;
+    --green-dim: rgba(22,163,74,0.1);
+    --red: #dc2626;
+    --red-dim: rgba(220,38,38,0.1);
+    --yellow: #d97706;
+    --yellow-dim: rgba(217,119,6,0.1);
+    --radius: 12px;
+    --radius-sm: 8px;
+    --shadow: 0 1px 3px rgba(0,0,0,0.08), 0 4px 16px rgba(0,0,0,0.06);
+    --shadow-lg: 0 8px 32px rgba(0,0,0,0.12), 0 2px 8px rgba(0,0,0,0.08);
+  }
+
+  html, body { height: 100%; font-family: 'DM Sans', sans-serif; background: var(--cream); color: var(--gray-800); }
+
+  /* ── LAYOUT ── */
+  .app { display: grid; grid-template-rows: 64px 1fr; min-height: 100vh; }
+
+  header {
+    background: var(--navy);
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 0 32px;
+    position: sticky; top: 0; z-index: 100;
+    box-shadow: 0 2px 12px rgba(0,0,0,0.2);
+  }
+  .logo { display: flex; align-items: center; gap: 12px; }
+  .logo-icon {
+    width: 36px; height: 36px; background: var(--orange);
+    border-radius: 8px; display: flex; align-items: center; justify-content: center;
+  }
+  .logo-icon svg { width: 20px; height: 20px; stroke: white; fill: none; stroke-width: 2; }
+  .logo-text { color: white; font-weight: 700; font-size: 16px; letter-spacing: -0.3px; }
+  .logo-sub { color: rgba(255,255,255,0.5); font-size: 11px; font-weight: 400; }
+  .header-badge {
+    background: var(--orange-dim); border: 1px solid rgba(232,81,26,0.3);
+    color: var(--orange-light); font-size: 12px; font-weight: 500;
+    padding: 4px 12px; border-radius: 20px; font-family: 'DM Mono', monospace;
+  }
+
+  main { display: grid; grid-template-columns: 300px 1fr; height: calc(100vh - 64px); overflow: hidden; }
+
+  /* ── SIDEBAR ── */
+  .sidebar {
+    background: var(--white); border-right: 1px solid var(--gray-200);
+    display: flex; flex-direction: column; overflow-y: auto;
+  }
+  .sidebar-section { padding: 20px; border-bottom: 1px solid var(--gray-100); }
+  .sidebar-label {
+    font-size: 10px; font-weight: 600; letter-spacing: 1px; text-transform: uppercase;
+    color: var(--gray-400); margin-bottom: 12px;
+  }
+
+  .step-list { display: flex; flex-direction: column; gap: 4px; }
+  .step-item {
+    display: flex; align-items: center; gap: 12px;
+    padding: 10px 12px; border-radius: var(--radius-sm); cursor: pointer;
+    transition: all 0.15s; border: 1px solid transparent;
+    font-size: 14px; font-weight: 500; color: var(--gray-600);
+  }
+  .step-item:hover { background: var(--gray-50); }
+  .step-item.active { background: rgba(30,58,95,0.06); border-color: rgba(30,58,95,0.15); color: var(--navy); }
+  .step-item.done { color: var(--green); }
+  .step-num {
+    width: 24px; height: 24px; border-radius: 50%; border: 1.5px solid currentColor;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 11px; font-family: 'DM Mono'; flex-shrink: 0;
+    font-weight: 600;
+  }
+  .step-item.done .step-num { background: var(--green); border-color: var(--green); color: white; }
+  .step-item.active .step-num { background: var(--navy); border-color: var(--navy); color: white; }
+
+  /* Job info sidebar */
+  .job-card {
+    background: var(--gray-50); border: 1px solid var(--gray-200);
+    border-radius: var(--radius-sm); padding: 14px;
+  }
+  .job-field { margin-bottom: 10px; }
+  .job-field:last-child { margin-bottom: 0; }
+  .job-field label { font-size: 11px; color: var(--gray-400); font-weight: 500; display: block; margin-bottom: 3px; }
+  .job-field span { font-size: 13px; font-weight: 600; color: var(--gray-800); font-family: 'DM Mono'; }
+  .job-field span.empty { color: var(--gray-400); font-weight: 400; font-family: 'DM Sans'; font-style: italic; }
+
+  .county-badge {
+    display: inline-flex; align-items: center; gap: 6px;
+    padding: 3px 10px; border-radius: 20px; font-size: 12px; font-weight: 600;
+    font-family: 'DM Mono';
+  }
+  .county-badge.broward { background: var(--orange-dim); color: var(--orange); border: 1px solid rgba(232,81,26,0.2); }
+  .county-badge.miami { background: rgba(30,58,95,0.1); color: var(--navy); border: 1px solid rgba(30,58,95,0.2); }
+  .county-badge.palm { background: var(--green-dim); color: var(--green); border: 1px solid rgba(22,163,74,0.2); }
+  .county-badge.monroe { background: var(--yellow-dim); color: var(--yellow); border: 1px solid rgba(217,119,6,0.2); }
+  .county-badge.unknown { background: var(--gray-100); color: var(--gray-600); border: 1px solid var(--gray-200); }
+
+  /* ── MAIN CONTENT ── */
+  .content { overflow-y: auto; padding: 32px; display: flex; flex-direction: column; gap: 24px; }
+
+  /* ── CARDS ── */
+  .card {
+    background: var(--white); border: 1px solid var(--gray-200);
+    border-radius: var(--radius); box-shadow: var(--shadow);
+    overflow: hidden;
+  }
+  .card-header {
+    padding: 18px 24px; border-bottom: 1px solid var(--gray-100);
+    display: flex; align-items: center; justify-content: space-between;
+  }
+  .card-title { font-size: 15px; font-weight: 700; color: var(--navy); display: flex; align-items: center; gap: 10px; }
+  .card-title svg { width: 18px; height: 18px; stroke: var(--orange); fill: none; stroke-width: 2; }
+  .card-body { padding: 24px; }
+
+  /* ── UPLOAD ZONE ── */
+  .upload-zone {
+    border: 2px dashed var(--gray-200); border-radius: var(--radius);
+    padding: 48px 32px; text-align: center; cursor: pointer;
+    transition: all 0.2s; position: relative; background: var(--gray-50);
+  }
+  .upload-zone:hover, .upload-zone.drag-over {
+    border-color: var(--orange); background: var(--orange-dim);
+  }
+  .upload-zone input { position: absolute; inset: 0; opacity: 0; cursor: pointer; }
+  .upload-icon { width: 48px; height: 48px; margin: 0 auto 16px; color: var(--gray-400); }
+  .upload-icon svg { width: 48px; height: 48px; stroke: currentColor; fill: none; stroke-width: 1.5; }
+  .upload-title { font-size: 16px; font-weight: 600; color: var(--gray-800); margin-bottom: 6px; }
+  .upload-sub { font-size: 13px; color: var(--gray-400); }
+  .upload-sub span { color: var(--orange); font-weight: 600; }
+
+  .file-preview {
+    display: flex; align-items: center; gap: 16px;
+    padding: 14px 16px; background: var(--green-dim);
+    border: 1px solid rgba(22,163,74,0.2); border-radius: var(--radius-sm);
+    margin-top: 16px;
+  }
+  .file-preview svg { width: 24px; height: 24px; stroke: var(--green); fill: none; stroke-width: 2; flex-shrink: 0; }
+  .file-preview-name { font-size: 14px; font-weight: 600; color: var(--green); }
+  .file-preview-meta { font-size: 12px; color: var(--gray-400); margin-top: 2px; }
+
+  /* ── BUTTONS ── */
+  .btn {
+    display: inline-flex; align-items: center; gap: 8px;
+    padding: 10px 20px; border-radius: var(--radius-sm); font-size: 14px;
+    font-weight: 600; border: none; cursor: pointer; transition: all 0.15s;
+    font-family: 'DM Sans'; text-decoration: none;
+  }
+  .btn svg { width: 16px; height: 16px; stroke: currentColor; fill: none; stroke-width: 2; }
+  .btn-primary { background: var(--navy); color: white; }
+  .btn-primary:hover { background: var(--navy-light); transform: translateY(-1px); box-shadow: 0 4px 12px rgba(30,58,95,0.3); }
+  .btn-primary:disabled { opacity: 0.5; cursor: not-allowed; transform: none; box-shadow: none; }
+  .btn-orange { background: var(--orange); color: white; }
+  .btn-orange:hover { background: var(--orange-light); transform: translateY(-1px); box-shadow: 0 4px 12px rgba(232,81,26,0.3); }
+  .btn-ghost { background: transparent; color: var(--gray-600); border: 1px solid var(--gray-200); }
+  .btn-ghost:hover { background: var(--gray-50); border-color: var(--gray-400); }
+  .btn-sm { padding: 6px 14px; font-size: 13px; }
+  .btn-icon { padding: 8px; }
+
+  /* ── PROCESSING ── */
+  .processing-box {
+    background: linear-gradient(135deg, rgba(30,58,95,0.04), rgba(232,81,26,0.04));
+    border: 1px solid var(--gray-200); border-radius: var(--radius);
+    padding: 32px; text-align: center;
+  }
+  .spinner {
+    width: 48px; height: 48px; border: 3px solid var(--gray-200);
+    border-top-color: var(--orange); border-radius: 50%;
+    animation: spin 0.8s linear infinite; margin: 0 auto 20px;
+  }
+  @keyframes spin { to { transform: rotate(360deg); } }
+  .processing-title { font-size: 16px; font-weight: 700; color: var(--navy); margin-bottom: 8px; }
+  .processing-sub { font-size: 13px; color: var(--gray-400); }
+
+  .progress-steps { display: flex; flex-direction: column; gap: 10px; margin-top: 24px; text-align: left; }
+  .progress-step {
+    display: flex; align-items: center; gap: 12px; padding: 10px 14px;
+    border-radius: var(--radius-sm); font-size: 13px; font-weight: 500;
+  }
+  .progress-step.pending { color: var(--gray-400); }
+  .progress-step.active { background: rgba(30,58,95,0.06); color: var(--navy); }
+  .progress-step.complete { background: var(--green-dim); color: var(--green); }
+  .progress-step-dot { width: 8px; height: 8px; border-radius: 50%; background: currentColor; flex-shrink: 0; }
+  .progress-step.active .progress-step-dot { animation: pulse 1s ease-in-out infinite; }
+  @keyframes pulse { 0%,100% { opacity: 1; } 50% { opacity: 0.3; } }
+
+  /* ── RESULTS TABLE ── */
+  .results-table { width: 100%; border-collapse: collapse; font-size: 13px; }
+  .results-table th {
+    background: var(--navy); color: white; padding: 10px 14px;
+    text-align: left; font-weight: 600; font-size: 11px; letter-spacing: 0.5px; text-transform: uppercase;
+  }
+  .results-table th:first-child { border-radius: 8px 0 0 0; }
+  .results-table th:last-child { border-radius: 0 8px 0 0; }
+  .results-table td { padding: 10px 14px; border-bottom: 1px solid var(--gray-100); vertical-align: middle; }
+  .results-table tr:last-child td { border-bottom: none; }
+  .results-table tr:hover td { background: var(--gray-50); }
+  .results-table tr.editing td { background: rgba(232,81,26,0.04); }
+
+  .mark-badge {
+    display: inline-block; padding: 3px 10px; border-radius: 6px;
+    font-family: 'DM Mono'; font-size: 12px; font-weight: 600;
+  }
+  .mark-badge.window { background: rgba(30,58,95,0.1); color: var(--navy); }
+  .mark-badge.door { background: var(--orange-dim); color: var(--orange); }
+  .mark-badge.egress { background: var(--red-dim); color: var(--red); }
+
+  .editable-cell { cursor: pointer; }
+  .editable-cell:hover { color: var(--orange); }
+  .editable-cell input {
+    border: 1px solid var(--orange); border-radius: 4px; padding: 4px 8px;
+    font-size: 13px; font-family: 'DM Sans'; width: 100%; outline: none;
+    background: white;
+  }
+
+  /* ── ALERT ── */
+  .alert {
+    display: flex; align-items: flex-start; gap: 12px;
+    padding: 14px 16px; border-radius: var(--radius-sm);
+    font-size: 13px; line-height: 1.5;
+  }
+  .alert svg { width: 18px; height: 18px; flex-shrink: 0; margin-top: 1px; fill: none; stroke: currentColor; stroke-width: 2; }
+  .alert-warning { background: var(--yellow-dim); color: var(--yellow); border: 1px solid rgba(217,119,6,0.2); }
+  .alert-info { background: rgba(30,58,95,0.06); color: var(--navy); border: 1px solid rgba(30,58,95,0.15); }
+  .alert-success { background: var(--green-dim); color: var(--green); border: 1px solid rgba(22,163,74,0.2); }
+  .alert-error { background: var(--red-dim); color: var(--red); border: 1px solid rgba(220,38,38,0.2); }
+
+  /* ── OUTPUT SECTION ── */
+  .output-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+  .output-card {
+    border: 1px solid var(--gray-200); border-radius: var(--radius-sm);
+    padding: 20px; display: flex; flex-direction: column; gap: 12px;
+  }
+  .output-card-icon { width: 40px; height: 40px; border-radius: 10px; display: flex; align-items: center; justify-content: center; }
+  .output-card-icon svg { width: 22px; height: 22px; fill: none; stroke: white; stroke-width: 2; }
+  .output-card-icon.blue { background: var(--navy); }
+  .output-card-icon.orange { background: var(--orange); }
+  .output-card-title { font-size: 14px; font-weight: 700; color: var(--gray-800); }
+  .output-card-sub { font-size: 12px; color: var(--gray-400); }
+
+  /* ── FORMS ── */
+  .form-group { margin-bottom: 16px; }
+  .form-group label { display: block; font-size: 12px; font-weight: 600; color: var(--gray-600); margin-bottom: 6px; letter-spacing: 0.3px; }
+  .form-group input, .form-group select {
+    width: 100%; padding: 10px 14px; border: 1px solid var(--gray-200);
+    border-radius: var(--radius-sm); font-size: 14px; font-family: 'DM Sans';
+    color: var(--gray-800); outline: none; transition: border-color 0.15s;
+    background: white;
+  }
+  .form-group input:focus, .form-group select:focus { border-color: var(--navy); box-shadow: 0 0 0 3px rgba(30,58,95,0.08); }
+  .form-row { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+
+  /* ── DIVIDER ── */
+  .divider { height: 1px; background: var(--gray-100); margin: 8px 0; }
+
+  /* ── ACTIONS BAR ── */
+  .actions-bar {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 16px 24px; background: var(--gray-50); border-top: 1px solid var(--gray-100);
+  }
+
+  /* ── STATS STRIP ── */
+  .stats-strip { display: grid; grid-template-columns: repeat(4, 1fr); gap: 1px; background: var(--gray-200); border-radius: var(--radius-sm); overflow: hidden; }
+  .stat-cell { background: white; padding: 14px; text-align: center; }
+  .stat-num { font-size: 24px; font-weight: 700; color: var(--navy); font-family: 'DM Mono'; }
+  .stat-label { font-size: 11px; color: var(--gray-400); margin-top: 2px; text-transform: uppercase; letter-spacing: 0.5px; }
+
+  /* ── NOTES LIST ── */
+  .notes-list { display: flex; flex-direction: column; gap: 8px; }
+  .note-item {
+    display: flex; align-items: flex-start; gap: 10px;
+    padding: 10px 14px; background: var(--gray-50);
+    border: 1px solid var(--gray-200); border-radius: var(--radius-sm);
+    font-size: 13px; color: var(--gray-600);
+  }
+  .note-item svg { width: 14px; height: 14px; stroke: var(--gray-400); fill: none; stroke-width: 2; flex-shrink: 0; margin-top: 2px; }
+
+  /* ── EMPTY STATE ── */
+  .empty-state { text-align: center; padding: 48px 24px; }
+  .empty-state-icon { font-size: 48px; margin-bottom: 16px; opacity: 0.3; }
+  .empty-state-title { font-size: 16px; font-weight: 600; color: var(--gray-400); margin-bottom: 6px; }
+  .empty-state-sub { font-size: 13px; color: var(--gray-400); }
+
+  /* ── SCROLLBAR ── */
+  ::-webkit-scrollbar { width: 6px; }
+  ::-webkit-scrollbar-track { background: transparent; }
+  ::-webkit-scrollbar-thumb { background: var(--gray-200); border-radius: 3px; }
+
+  /* ── MODAL ── */
+  .modal-overlay {
+    position: fixed; inset: 0; background: rgba(0,0,0,0.5);
+    display: flex; align-items: center; justify-content: center; z-index: 1000;
+    backdrop-filter: blur(4px);
+    opacity: 0; pointer-events: none; transition: opacity 0.2s;
+  }
+  .modal-overlay.open { opacity: 1; pointer-events: all; }
+  .modal {
+    background: white; border-radius: var(--radius); box-shadow: var(--shadow-lg);
+    width: 560px; max-width: 90vw; max-height: 85vh; overflow-y: auto;
+    transform: translateY(20px); transition: transform 0.2s;
+  }
+  .modal-overlay.open .modal { transform: translateY(0); }
+  .modal-header { padding: 20px 24px; border-bottom: 1px solid var(--gray-100); display: flex; align-items: center; justify-content: space-between; }
+  .modal-title { font-size: 16px; font-weight: 700; color: var(--navy); }
+  .modal-body { padding: 24px; }
+  .modal-footer { padding: 16px 24px; border-top: 1px solid var(--gray-100); display: flex; gap: 10px; justify-content: flex-end; }
+
+  /* Responsive */
+  @media (max-width: 900px) {
+    main { grid-template-columns: 1fr; }
+    .sidebar { display: none; }
+    .output-grid { grid-template-columns: 1fr; }
+    .form-row { grid-template-columns: 1fr; }
+    .stats-strip { grid-template-columns: repeat(2, 1fr); }
+  }
+
+  .tag { display: inline-block; padding: 2px 8px; border-radius: 4px; font-size: 11px; font-weight: 600; }
+  .tag-egress { background: var(--red-dim); color: var(--red); }
+
+  .confidence { font-family: 'DM Mono'; font-size: 11px; }
+  .confidence.high { color: var(--green); }
+  .confidence.med { color: var(--yellow); }
+  .confidence.low { color: var(--red); }
+</style>
+</head>
+<body>
+<div class="app">
+
+<!-- HEADER -->
+<header>
+  <div class="logo">
+    <div class="logo-icon">
+      <svg viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18M9 3v18"/></svg>
+    </div>
+    <div>
+      <div class="logo-text">TSGC Permit System</div>
+      <div class="logo-sub">Windows & Doors · South Florida</div>
+    </div>
+  </div>
+  <div style="display:flex;align-items:center;gap:12px;">
+  <span id="apiKeyStatus" style="font-size:11px;color:rgba(255,255,255,0.4);cursor:pointer;" onclick="showApiKeySetup()">API Key: Not set</span>
+  <button onclick="showApiKeySetup()" style="background:rgba(255,255,255,0.1);border:1px solid rgba(255,255,255,0.2);color:white;padding:6px 12px;border-radius:6px;font-size:12px;cursor:pointer;font-family:inherit;">&#128273; API Key</button>
+  <div class="header-badge" id="headerStatus">Ready</div>
+</div>
+</header>
+
+<main>
+<!-- SIDEBAR -->
+<aside class="sidebar">
+  <div class="sidebar-section">
+    <div class="sidebar-label">Workflow</div>
+    <div class="step-list">
+      <div class="step-item active" id="step-tab-1" onclick="goToStep(1)">
+        <div class="step-num">1</div>
+        Upload Plan
+      </div>
+      <div class="step-item" id="step-tab-2" onclick="goToStep(2)">
+        <div class="step-num">2</div>
+        Review Extraction
+      </div>
+      <div class="step-item" id="step-tab-3" onclick="goToStep(3)">
+        <div class="step-num">3</div>
+        Generate Schedule
+      </div>
+    </div>
+  </div>
+
+  <div class="sidebar-section">
+    <div class="sidebar-label">Current Job</div>
+    <div class="job-card">
+      <div class="job-field">
+        <label>Address</label>
+        <span id="sb-address" class="empty">Not detected yet</span>
+      </div>
+      <div class="job-field">
+        <label>County</label>
+        <span id="sb-county">—</span>
+      </div>
+      <div class="job-field">
+        <label>Openings Found</label>
+        <span id="sb-count" class="empty">—</span>
+      </div>
+      <div class="job-field">
+        <label>Egress</label>
+        <span id="sb-egress" class="empty">—</span>
+      </div>
+    </div>
+  </div>
+
+  <div class="sidebar-section">
+    <div class="sidebar-label">Tips</div>
+    <div style="font-size:12px; color: var(--gray-400); line-height:1.6;">
+      <p>📄 Upload PDF or photo of the floor plan</p>
+      <br>
+      <p>✏️ The AI reads window marks, door marks, egress labels, and room names</p>
+      <br>
+      <p>✅ Review and fix anything before generating</p>
+      <br>
+      <p>📋 Download your permit-ready schedule</p>
+    </div>
+  </div>
+</aside>
+
+<!-- MAIN CONTENT -->
+<div class="content" id="mainContent">
+
+  <!-- ═══ STEP 1: UPLOAD ═══ -->
+  <div id="step-1">
+    <div class="card">
+      <div class="card-header">
+        <div class="card-title">
+          <svg viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+          Upload Floor Plan
+        </div>
+      </div>
+      <div class="card-body">
+        <div class="alert alert-info" style="margin-bottom:20px;">
+          <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+          <div>Upload your floor plan and the AI will automatically read the address to determine the county, then extract all window marks, door marks, room labels, egress notes, and dimensions.</div>
+        </div>
+
+        <div class="upload-zone" id="uploadZone" onclick="document.getElementById('fileInput').click()">
+          <input type="file" id="fileInput" accept=".pdf,.png,.jpg,.jpeg,.webp" onchange="handleFileSelect(event)">
+          <div class="upload-icon">
+            <svg viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="12" y1="18" x2="12" y2="12"/><line x1="9" y1="15" x2="12" y2="12"/><line x1="15" y1="15" x2="12" y2="12"/></svg>
+          </div>
+          <div class="upload-title">Drop your floor plan here</div>
+          <div class="upload-sub">or <span>browse files</span> · PDF, JPG, PNG accepted</div>
+        </div>
+
+        <div id="filePreview" style="display:none;" class="file-preview">
+          <svg viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
+          <div>
+            <div class="file-preview-name" id="fileName">—</div>
+            <div class="file-preview-meta" id="fileSize">—</div>
+          </div>
+        </div>
+
+        <div style="margin-top:24px; padding-top:20px; border-top:1px solid var(--gray-100);">
+          <div class="form-row">
+            <div class="form-group">
+              <label>Manufacturer (optional — helps matching later)</label>
+              <input type="text" id="manufacturer" placeholder="e.g. ES Windows, PGT, CGI">
+            </div>
+            <div class="form-group">
+              <label>Series (optional)</label>
+              <input type="text" id="series" placeholder="e.g. Elite, WinGuard">
+            </div>
+          </div>
+          <div class="form-group">
+            <label>Additional notes for the AI (optional)</label>
+            <input type="text" id="extraNotes" placeholder="e.g. All impact glass, second floor only, etc.">
+          </div>
+        </div>
+      </div>
+      <div class="actions-bar">
+        <span style="font-size:12px; color:var(--gray-400);">Supported: PDF, JPG, PNG, WEBP</span>
+        <button class="btn btn-primary" id="analyzeBtn" onclick="startAnalysis()" disabled>
+          <svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+          Analyze Plan
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══ STEP 2: PROCESSING ═══ -->
+  <div id="step-processing" style="display:none;">
+    <div class="card">
+      <div class="card-body">
+        <div class="processing-box">
+          <div class="spinner"></div>
+          <div class="processing-title">Reading your floor plan…</div>
+          <div class="processing-sub">This takes about 15–30 seconds</div>
+
+          <div class="progress-steps" id="progressSteps">
+            <div class="progress-step pending" id="ps-1">
+              <div class="progress-step-dot"></div> Uploading and preprocessing image
+            </div>
+            <div class="progress-step pending" id="ps-2">
+              <div class="progress-step-dot"></div> Running AI text recognition (OCR)
+            </div>
+            <div class="progress-step pending" id="ps-3">
+              <div class="progress-step-dot"></div> Detecting address and determining county
+            </div>
+            <div class="progress-step pending" id="ps-4">
+              <div class="progress-step-dot"></div> Extracting window and door marks
+            </div>
+            <div class="progress-step pending" id="ps-5">
+              <div class="progress-step-dot"></div> Identifying room labels and egress notes
+            </div>
+            <div class="progress-step pending" id="ps-6">
+              <div class="progress-step-dot"></div> Building schedule data
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══ STEP 2: REVIEW ═══ -->
+  <div id="step-2" style="display:none;">
+
+    <!-- Summary stats -->
+    <div class="card">
+      <div class="card-body" style="padding:0;">
+        <div class="stats-strip">
+          <div class="stat-cell">
+            <div class="stat-num" id="stat-windows">0</div>
+            <div class="stat-label">Windows</div>
+          </div>
+          <div class="stat-cell">
+            <div class="stat-num" id="stat-doors">0</div>
+            <div class="stat-label">Doors</div>
+          </div>
+          <div class="stat-cell">
+            <div class="stat-num" id="stat-egress">0</div>
+            <div class="stat-label">Egress</div>
+          </div>
+          <div class="stat-cell">
+            <div class="stat-num" id="stat-rooms">0</div>
+            <div class="stat-label">Rooms</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Address / County Card -->
+    <div class="card">
+      <div class="card-header">
+        <div class="card-title">
+          <svg viewBox="0 0 24 24"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg>
+          Detected Address & County
+        </div>
+        <button class="btn btn-ghost btn-sm" onclick="openAddressModal()">Edit</button>
+      </div>
+      <div class="card-body" style="display:flex; gap:32px; align-items:center; flex-wrap:wrap;">
+        <div>
+          <div style="font-size:11px; color:var(--gray-400); font-weight:600; margin-bottom:4px;">ADDRESS</div>
+          <div style="font-size:15px; font-weight:600;" id="display-address">—</div>
+        </div>
+        <div>
+          <div style="font-size:11px; color:var(--gray-400); font-weight:600; margin-bottom:4px;">COUNTY</div>
+          <div id="display-county">—</div>
+        </div>
+        <div>
+          <div style="font-size:11px; color:var(--gray-400); font-weight:600; margin-bottom:4px;">SCHEDULE FORMAT</div>
+          <div style="font-size:14px; font-weight:600; color:var(--navy);" id="display-format">—</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Openings Table -->
+    <div class="card">
+      <div class="card-header">
+        <div class="card-title">
+          <svg viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18M9 3v18"/></svg>
+          Extracted Openings — Review & Edit
+        </div>
+        <div style="display:flex; gap:8px;">
+          <button class="btn btn-ghost btn-sm" onclick="addRow()">+ Add Row</button>
+        </div>
+      </div>
+      <div style="overflow-x:auto;">
+        <table class="results-table" id="openingsTable">
+          <thead>
+            <tr>
+              <th>Mark</th>
+              <th>Type</th>
+              <th>Width</th>
+              <th>Height</th>
+              <th>Location/Room</th>
+              <th>Egress</th>
+              <th>Notes</th>
+              <th>AI Confidence</th>
+              <th></th>
+            </tr>
+          </thead>
+          <tbody id="openingsBody">
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- Rooms & Notes -->
+    <div style="display:grid; grid-template-columns:1fr 1fr; gap:16px;">
+      <div class="card">
+        <div class="card-header">
+          <div class="card-title">
+            <svg viewBox="0 0 24 24"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>
+            Room Labels Detected
+          </div>
+        </div>
+        <div class="card-body">
+          <div class="notes-list" id="roomsList"></div>
+        </div>
+      </div>
+      <div class="card">
+        <div class="card-header">
+          <div class="card-title">
+            <svg viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>
+            Structural Notes Extracted
+          </div>
+        </div>
+        <div class="card-body">
+          <div class="notes-list" id="notesList"></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="actions-bar" style="background:white; border:1px solid var(--gray-200); border-radius:var(--radius);">
+      <button class="btn btn-ghost" onclick="goToStep(1)">← Start Over</button>
+      <button class="btn btn-primary" onclick="goToStep(3)">
+        Generate Schedule
+        <svg viewBox="0 0 24 24"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg>
+      </button>
+    </div>
+  </div>
+
+  <!-- ═══ STEP 3: GENERATE ═══ -->
+  <div id="step-3" style="display:none;">
+    <div class="card">
+      <div class="card-header">
+        <div class="card-title">
+          <svg viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
+          Generate Permit Package
+        </div>
+      </div>
+      <div class="card-body">
+
+        <div class="alert alert-success" style="margin-bottom:24px;">
+          <svg viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12"/></svg>
+          <div>Review complete. <strong id="gen-count">0 openings</strong> ready to export. County: <strong id="gen-county">—</strong></div>
+        </div>
+
+        <div class="form-row" style="margin-bottom:20px;">
+          <div class="form-group">
+            <label>Project / Permit Number (optional)</label>
+            <input type="text" id="permitNum" placeholder="e.g. 2024-BR-00123">
+          </div>
+          <div class="form-group">
+            <label>Contractor Name</label>
+            <input type="text" id="contractorName" value="TSGC Windows & Doors">
+          </div>
+        </div>
+        <div class="form-row" style="margin-bottom:20px;">
+          <div class="form-group">
+            <label>License Number</label>
+            <input type="text" id="licenseNum" placeholder="e.g. CBC1234567">
+          </div>
+          <div class="form-group">
+            <label>Date</label>
+            <input type="text" id="scheduleDate" id="scheduleDate">
+          </div>
+        </div>
+
+        <div class="divider"></div>
+        <div style="margin-top:20px;">
+          <div class="sidebar-label" style="margin-bottom:16px;">What to generate</div>
+          <div class="output-grid">
+            <div class="output-card">
+              <div class="output-card-icon blue">
+                <svg viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>
+              </div>
+              <div>
+                <div class="output-card-title">Window & Door Schedule</div>
+                <div class="output-card-sub">Permit-ready PDF table · Broward or standard format</div>
+              </div>
+              <button class="btn btn-primary" onclick="generateSchedulePDF()">
+                <svg viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+                Download PDF
+              </button>
+            </div>
+
+            <div class="output-card">
+              <div class="output-card-icon orange">
+                <svg viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18M9 3v18"/></svg>
+              </div>
+              <div>
+                <div class="output-card-title">Schedule as CSV</div>
+                <div class="output-card-sub">Import into Excel or Google Sheets</div>
+              </div>
+              <button class="btn btn-orange" onclick="generateCSV()">
+                <svg viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+                Download CSV
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="actions-bar">
+        <button class="btn btn-ghost" onclick="goToStep(2)">← Back to Review</button>
+        <button class="btn btn-ghost" onclick="startOver()">Start New Job</button>
+      </div>
+    </div>
+  </div>
+
+</div><!-- end .content -->
+</main>
+</div><!-- end .app -->
+
+<!-- ADDRESS EDIT MODAL -->
+<div class="modal-overlay" id="addressModal">
+  <div class="modal">
+    <div class="modal-header">
+      <div class="modal-title">Edit Address & County</div>
+      <button class="btn btn-ghost btn-icon btn-sm" onclick="closeModal('addressModal')">
+        <svg viewBox="0 0 24 24" width="16" height="16" stroke="currentColor" fill="none" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+      </button>
+    </div>
+    <div class="modal-body">
+      <div class="form-group">
+        <label>Full Address</label>
+        <input type="text" id="editAddress" placeholder="123 Main St, Fort Lauderdale, FL 33301">
+      </div>
+      <div class="form-group">
+        <label>County</label>
+        <select id="editCounty">
+          <option value="Broward">Broward</option>
+          <option value="Miami-Dade">Miami-Dade</option>
+          <option value="Palm Beach">Palm Beach</option>
+          <option value="Monroe">Monroe</option>
+        </select>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-ghost" onclick="closeModal('addressModal')">Cancel</button>
+      <button class="btn btn-primary" onclick="saveAddress()">Save Changes</button>
+    </div>
+  </div>
+</div>
+
+<!-- ADD ROW MODAL -->
+<div class="modal-overlay" id="addRowModal">
+  <div class="modal">
+    <div class="modal-header">
+      <div class="modal-title">Add Opening Manually</div>
+      <button class="btn btn-ghost btn-icon btn-sm" onclick="closeModal('addRowModal')">
+        <svg viewBox="0 0 24 24" width="16" height="16" stroke="currentColor" fill="none" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+      </button>
+    </div>
+    <div class="modal-body">
+      <div class="form-row">
+        <div class="form-group">
+          <label>Mark (e.g. W5, D3)</label>
+          <input type="text" id="new-mark" placeholder="W5">
+        </div>
+        <div class="form-group">
+          <label>Type</label>
+          <select id="new-type">
+            <option value="WINDOW">Window</option>
+            <option value="DOOR">Door</option>
+          </select>
+        </div>
+      </div>
+      <div class="form-row">
+        <div class="form-group">
+          <label>Width</label>
+          <input type="text" id="new-width" placeholder="3/0">
+        </div>
+        <div class="form-group">
+          <label>Height</label>
+          <input type="text" id="new-height" placeholder="4/0">
+        </div>
+      </div>
+      <div class="form-row">
+        <div class="form-group">
+          <label>Location / Room</label>
+          <input type="text" id="new-room" placeholder="Master Bedroom">
+        </div>
+        <div class="form-group">
+          <label>Egress?</label>
+          <select id="new-egress">
+            <option value="NO">No</option>
+            <option value="YES">Yes</option>
+          </select>
+        </div>
+      </div>
+      <div class="form-group">
+        <label>Notes</label>
+        <input type="text" id="new-notes" placeholder="Impact, tempered, etc.">
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-ghost" onclick="closeModal('addRowModal')">Cancel</button>
+      <button class="btn btn-primary" onclick="saveNewRow()">Add Opening</button>
+    </div>
+  </div>
+</div>
+
+<!-- API KEY MODAL -->
+<div class="modal-overlay" id="apiKeyModal">
+  <div class="modal">
+    <div class="modal-header">
+      <div class="modal-title">Enter Your API Key</div>
+    </div>
+    <div class="modal-body">
+      <div class="alert alert-info" style="margin-bottom:20px;">
+        <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+        <div>
+          This app uses the Anthropic AI to read your floor plans. You need a free API key to use it.<br><br>
+          <strong>How to get your key:</strong><br>
+          1. Go to <strong>console.anthropic.com</strong><br>
+          2. Sign up for a free account<br>
+          3. Click "API Keys" in the left menu<br>
+          4. Click "Create Key" and copy it<br>
+          5. Paste it below — it starts with <code>sk-ant-</code><br><br>
+          Your key is saved only on this computer and never sent anywhere except to Anthropic.
+        </div>
+      </div>
+      <div class="form-group">
+        <label>Anthropic API Key</label>
+        <input type="password" id="apiKeyInput" placeholder="sk-ant-api03-..." autocomplete="off">
+      </div>
+      <div style="font-size:12px;color:var(--red);margin-top:4px;" id="apiKeyError"></div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-ghost" onclick="closeModal('apiKeyModal')">Cancel</button>
+      <button class="btn btn-primary" onclick="saveApiKey()">Save &amp; Continue</button>
+    </div>
+  </div>
+</div>
+
+<script>
+// ═══════════════════════════════════════
+// STATE
+// ═══════════════════════════════════════
+let state = {
+  currentStep: 1,
+  file: null,
+  fileDataUrl: null,
+  address: '',
+  county: '',
+  openings: [],
+  rooms: [],
+  notes: [],
+  manufacturer: '',
+  series: ''
+};
+
+// ═══════════════════════════════════════
+// INIT
+// ═══════════════════════════════════════
+document.addEventListener('DOMContentLoaded', () => {
+  updateApiKeyStatus();
+  const today = new Date().toLocaleDateString('en-US', { year:'numeric', month:'long', day:'numeric' });
+  if (document.getElementById('scheduleDate')) {
+    document.getElementById('scheduleDate').value = today;
+  }
+
+  // Drag and drop
+  const zone = document.getElementById('uploadZone');
+  zone.addEventListener('dragover', e => { e.preventDefault(); zone.classList.add('drag-over'); });
+  zone.addEventListener('dragleave', () => zone.classList.remove('drag-over'));
+  zone.addEventListener('drop', e => {
+    e.preventDefault(); zone.classList.remove('drag-over');
+    const file = e.dataTransfer.files[0];
+    if (file) processFile(file);
+  });
+});
+
+// ═══════════════════════════════════════
+// FILE HANDLING
+// ═══════════════════════════════════════
+function handleFileSelect(event) {
+  const file = event.target.files[0];
+  if (file) processFile(file);
+}
+
+function processFile(file) {
+  state.file = file;
+  const sizeKB = (file.size / 1024).toFixed(1);
+  const sizeMB = (file.size / 1024 / 1024).toFixed(1);
+  document.getElementById('fileName').textContent = file.name;
+  document.getElementById('fileSize').textContent = `${sizeMB} MB · ${file.type} · Will be compressed for AI`;
+  document.getElementById('filePreview').style.display = 'flex';
+  document.getElementById('analyzeBtn').disabled = false;
+
+  // For PDFs, read as base64 directly (Claude can handle PDFs natively up to ~20MB)
+  if (file.type === 'application/pdf') {
+    const reader = new FileReader();
+    reader.onload = e => { state.fileDataUrl = e.target.result; state.isPDF = true; };
+    reader.readAsDataURL(file);
+    return;
+  }
+
+  // For images: compress to max 2000px wide and 85% quality before sending
+  state.isPDF = false;
+  const reader = new FileReader();
+  reader.onload = e => {
+    const img = new Image();
+    img.onload = () => {
+      const MAX_DIM = 2000;
+      let { width, height } = img;
+
+      // Scale down if needed
+      if (width > MAX_DIM || height > MAX_DIM) {
+        const ratio = Math.min(MAX_DIM / width, MAX_DIM / height);
+        width = Math.round(width * ratio);
+        height = Math.round(height * ratio);
+      }
+
+      const canvas = document.createElement('canvas');
+      canvas.width = width;
+      canvas.height = height;
+      const ctx = canvas.getContext('2d');
+      ctx.fillStyle = '#ffffff';
+      ctx.fillRect(0, 0, width, height);
+      ctx.drawImage(img, 0, 0, width, height);
+
+      // Try JPEG at 90% first, drop to 80% if still large
+      let compressed = canvas.toDataURL('image/jpeg', 0.90);
+      const compressedBytes = (compressed.length * 0.75) / 1024 / 1024;
+
+      if (compressedBytes > 4) {
+        compressed = canvas.toDataURL('image/jpeg', 0.80);
+      }
+
+      state.fileDataUrl = compressed;
+      const newMB = ((compressed.length * 0.75) / 1024 / 1024).toFixed(1);
+      document.getElementById('fileSize').textContent = `Original: ${sizeMB} MB → Compressed: ${newMB} MB · Ready`;
+    };
+    img.src = e.target.result;
+  };
+  reader.readAsDataURL(file);
+}
+
+// ═══════════════════════════════════════
+// ANALYSIS
+// ═══════════════════════════════════════
+async function startAnalysis() {
+  if (!state.file) return;
+
+  state.manufacturer = document.getElementById('manufacturer').value;
+  state.series = document.getElementById('series').value;
+
+  goToStepVisual('processing');
+  document.getElementById('headerStatus').textContent = 'Analyzing…';
+
+  await animateProgress();
+  await callClaudeAPI();
+}
+
+async function animateProgress() {
+  const steps = ['ps-1','ps-2','ps-3','ps-4','ps-5','ps-6'];
+  const delays = [300, 800, 1400, 2200, 3000, 3600];
+  
+  for (let i = 0; i < steps.length; i++) {
+    await sleep(delays[i]);
+    if (i > 0) setProgressStep(steps[i-1], 'complete');
+    setProgressStep(steps[i], 'active');
+  }
+}
+
+function sleep(ms) { return new Promise(r => setTimeout(r, ms)); }
+
+function setProgressStep(id, status) {
+  const el = document.getElementById(id);
+  if (!el) return;
+  el.className = 'progress-step ' + status;
+}
+
+// ═══════════════════════════════════════
+// API KEY MANAGEMENT
+// ═══════════════════════════════════════
+function getApiKey() {
+  return localStorage.getItem('tsgc_api_key') || '';
+}
+
+function showApiKeySetup() {
+  document.getElementById('apiKeyModal').classList.add('open');
+}
+
+function saveApiKey() {
+  const key = document.getElementById('apiKeyInput').value.trim();
+  if (!key.startsWith('sk-ant-')) {
+    document.getElementById('apiKeyError').textContent = "That doesn't look right — the key should start with sk-ant-";
+    return;
+  }
+  localStorage.setItem('tsgc_api_key', key);
+  document.getElementById('apiKeyError').textContent = '';
+  closeModal('apiKeyModal');
+  updateApiKeyStatus();
+  startAnalysis();
+}
+
+function updateApiKeyStatus() {
+  const el = document.getElementById('apiKeyStatus');
+  if (!el) return;
+  const key = getApiKey();
+  el.textContent = key ? 'API Key: \u2713 Saved' : 'API Key: Not set';
+  el.style.color = key ? 'rgba(255,255,255,0.7)' : 'rgba(255,255,255,0.4)';
+}
+
+// ═══════════════════════════════════════
+// MAIN API CALL
+// ═══════════════════════════════════════
+async function callClaudeAPI() {
+  try {
+    const apiKey = getApiKey();
+    if (!apiKey) {
+      goToStepVisual('none');
+      document.getElementById('step-1').style.display = '';
+      document.getElementById('headerStatus').textContent = 'Setup needed';
+      showApiKeySetup();
+      return;
+    }
+
+    await waitForFileReady();
+    const base64Data = state.fileDataUrl.split(',')[1];
+
+    let contentBlock;
+    if (state.isPDF) {
+      contentBlock = { type: 'document', source: { type: 'base64', media_type: 'application/pdf', data: base64Data } };
+    } else {
+      contentBlock = { type: 'image', source: { type: 'base64', media_type: 'image/jpeg', data: base64Data } };
+    }
+
+    const systemPrompt = `You are an expert at reading construction floor plans for window and door permit applications in South Florida (Broward, Miami-Dade, Palm Beach, Monroe counties). Respond ONLY with valid JSON, no markdown, no explanation.\n\nReturn this exact JSON structure:\n{\n  "address": "full address or empty string",\n  "county": "Broward|Miami-Dade|Palm Beach|Monroe|Unknown",\n  "openings": [\n    { "mark": "W1", "type": "WINDOW", "width": "3/0", "height": "4/6", "room": "Master Bedroom", "egress": "NO", "notes": "", "confidence": "HIGH" }\n  ],\n  "rooms": ["Master Bedroom", "Kitchen"],\n  "structuralNotes": ["note text"]\n}\n\nCounty rules: Fort Lauderdale/Pembroke Pines/Miramar/Hollywood/Coral Springs/Pompano=Broward; Miami/Hialeah/Coral Gables/Doral/Kendall=Miami-Dade; West Palm Beach/Boca Raton/Delray Beach/Boynton Beach=Palm Beach; Key West/Marathon/Key Largo=Monroe.\n\nExtract ALL window marks (W1,W2...) and door marks (D1,D2...). Only mark egress=YES if the word EGRESS is literally on the plan. Be thorough.`;
+
+    const userMessage = (state.manufacturer || state.series)
+      ? `Manufacturer: ${state.manufacturer || 'Unknown'}\nSeries: ${state.series || 'Unknown'}\n\nAnalyze this floor plan.`
+      : 'Analyze this floor plan and extract all window/door data, address, and structural notes.';
+
+    const response = await fetch('https://api.anthropic.com/v1/messages', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'x-api-key': apiKey,
+        'anthropic-version': '2023-06-01',
+        'anthropic-dangerous-direct-browser-access': 'true'
+      },
+      body: JSON.stringify({
+        model: 'claude-sonnet-4-5',
+        max_tokens: 4000,
+        system: systemPrompt,
+        messages: [{ role: 'user', content: [contentBlock, { type: 'text', text: userMessage }] }]
+      })
+    });
+
+    if (!response.ok) {
+      const errBody = await response.json().catch(() => ({}));
+      const errMsg = errBody?.error?.message || ('HTTP ' + response.status);
+      if (response.status === 401) { localStorage.removeItem('tsgc_api_key'); }
+      throw new Error(errMsg);
+    }
+
+    const data = await response.json();
+    const rawText = data.content.map(b => b.text || '').join('');
+    const clean = rawText.replace(/```json|```/g, '').trim();
+    const parsed = JSON.parse(clean);
+
+    state.address = parsed.address || '';
+    state.county = parsed.county || 'Unknown';
+    state.openings = parsed.openings || [];
+    state.rooms = parsed.rooms || [];
+    state.notes = parsed.structuralNotes || [];
+
+    showResults();
+
+  } catch (err) {
+    console.error(err);
+    showError(err.message);
+  }
+}
+
+function waitForFileReady(maxWait = 10000) {
+  return new Promise((resolve, reject) => {
+    const start = Date.now();
+    const check = () => {
+      if (state.fileDataUrl) return resolve();
+      if (Date.now() - start > maxWait) return reject(new Error('File took too long to load'));
+      setTimeout(check, 100);
+    };
+    check();
+  });
+}
+
+function showError(message) {
+  goToStepVisual('none');
+  document.getElementById('step-1').style.display = '';
+  document.getElementById('headerStatus').textContent = 'Error';
+  const existingErr = document.getElementById('apiError');
+  if (existingErr) existingErr.remove();
+  const errDiv = document.createElement('div');
+  errDiv.id = 'apiError';
+  errDiv.className = 'alert alert-error';
+  errDiv.style.marginBottom = '16px';
+  errDiv.innerHTML = '<svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg><div><strong>Could not analyze the plan.</strong><br><span style="font-family:monospace;font-size:12px;opacity:0.8;">' + message + '</span><br><br>Check your API key is entered correctly, and that you are connected to the internet.</div>';
+  const cardBody = document.querySelector('#step-1 .card-body');
+  cardBody.insertBefore(errDiv, cardBody.firstChild);
+}
+
+function showResults() {
+  // Update sidebar
+  document.getElementById('sb-address').textContent = state.address || 'Not found on plan';
+  document.getElementById('sb-address').className = state.address ? '' : 'empty';
+  
+  const windows = state.openings.filter(o => o.type === 'WINDOW').length;
+  const doors = state.openings.filter(o => o.type === 'DOOR').length;
+  const egress = state.openings.filter(o => o.egress === 'YES').length;
+  
+  document.getElementById('sb-count').textContent = `${windows}W · ${doors}D`;
+  document.getElementById('sb-count').className = '';
+  document.getElementById('sb-egress').textContent = egress > 0 ? `${egress} marked` : 'None detected';
+  document.getElementById('sb-egress').className = egress > 0 ? '' : 'empty';
+
+  // Set county badge in sidebar
+  const countyEl = document.getElementById('sb-county');
+  countyEl.innerHTML = renderCountyBadge(state.county);
+
+  // Stats
+  document.getElementById('stat-windows').textContent = windows;
+  document.getElementById('stat-doors').textContent = doors;
+  document.getElementById('stat-egress').textContent = egress;
+  document.getElementById('stat-rooms').textContent = state.rooms.length;
+
+  // Address/county display
+  document.getElementById('display-address').textContent = state.address || 'Not found — please edit';
+  document.getElementById('display-county').innerHTML = renderCountyBadge(state.county);
+  document.getElementById('display-format').textContent = 
+    state.county === 'Broward' ? 'Broward County Uniform Schedule' : 'Standard Florida Schedule';
+
+  // Build openings table
+  renderOpeningsTable();
+
+  // Rooms
+  const roomsList = document.getElementById('roomsList');
+  if (state.rooms.length === 0) {
+    roomsList.innerHTML = '<div style="color:var(--gray-400); font-size:13px;">No room labels detected</div>';
+  } else {
+    roomsList.innerHTML = state.rooms.map(r => `
+      <div class="note-item">
+        <svg viewBox="0 0 24 24"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/></svg>
+        ${r}
+      </div>`).join('');
+  }
+
+  // Notes
+  const notesList = document.getElementById('notesList');
+  if (state.notes.length === 0) {
+    notesList.innerHTML = '<div style="color:var(--gray-400); font-size:13px;">No structural notes detected</div>';
+  } else {
+    notesList.innerHTML = state.notes.map(n => `
+      <div class="note-item">
+        <svg viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
+        ${n}
+      </div>`).join('');
+  }
+
+  // Header status
+  document.getElementById('headerStatus').textContent = `${state.openings.length} openings found`;
+
+  goToStep(2);
+}
+
+function renderCountyBadge(county) {
+  const map = { 'Broward':'broward', 'Miami-Dade':'miami', 'Palm Beach':'palm', 'Monroe':'monroe' };
+  const cls = map[county] || 'unknown';
+  return `<span class="county-badge ${cls}">${county || 'Unknown'}</span>`;
+}
+
+function renderOpeningsTable() {
+  const tbody = document.getElementById('openingsBody');
+  if (state.openings.length === 0) {
+    tbody.innerHTML = `<tr><td colspan="9" style="text-align:center; color:var(--gray-400); padding:32px;">No openings detected — add them manually</td></tr>`;
+    return;
+  }
+
+  tbody.innerHTML = state.openings.map((o, i) => `
+    <tr>
+      <td>
+        <span class="mark-badge ${o.type === 'WINDOW' ? 'window' : 'door'}">${o.mark}</span>
+        ${o.egress === 'YES' ? '<span class="tag tag-egress" style="margin-left:4px;">EGRESS</span>' : ''}
+      </td>
+      <td>${o.type}</td>
+      <td class="editable-cell" onclick="editCell(this, ${i}, 'width')">${o.width || '—'}</td>
+      <td class="editable-cell" onclick="editCell(this, ${i}, 'height')">${o.height || '—'}</td>
+      <td class="editable-cell" onclick="editCell(this, ${i}, 'room')">${o.room || '—'}</td>
+      <td>
+        <select onchange="state.openings[${i}].egress = this.value" style="border:1px solid var(--gray-200); border-radius:4px; padding:4px 8px; font-size:12px; font-family:inherit;">
+          <option value="NO" ${o.egress !== 'YES' ? 'selected' : ''}>No</option>
+          <option value="YES" ${o.egress === 'YES' ? 'selected' : ''}>Yes</option>
+        </select>
+      </td>
+      <td class="editable-cell" onclick="editCell(this, ${i}, 'notes')">${o.notes || '—'}</td>
+      <td><span class="confidence ${(o.confidence||'').toLowerCase()}">${o.confidence || '—'}</span></td>
+      <td>
+        <button class="btn btn-ghost btn-icon btn-sm" onclick="deleteRow(${i})" title="Remove">
+          <svg viewBox="0 0 24 24" width="14" height="14" stroke="currentColor" fill="none" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/></svg>
+        </button>
+      </td>
+    </tr>`).join('');
+}
+
+function editCell(td, rowIdx, field) {
+  const current = state.openings[rowIdx][field] || '';
+  td.innerHTML = `<input type="text" value="${current}" onblur="saveCell(this, ${rowIdx}, '${field}')" onkeydown="if(event.key==='Enter')this.blur();" autofocus>`;
+  td.querySelector('input').focus();
+}
+
+function saveCell(input, rowIdx, field) {
+  state.openings[rowIdx][field] = input.value;
+  renderOpeningsTable();
+}
+
+function deleteRow(idx) {
+  state.openings.splice(idx, 1);
+  renderOpeningsTable();
+  updateStats();
+}
+
+function updateStats() {
+  document.getElementById('stat-windows').textContent = state.openings.filter(o => o.type === 'WINDOW').length;
+  document.getElementById('stat-doors').textContent = state.openings.filter(o => o.type === 'DOOR').length;
+  document.getElementById('stat-egress').textContent = state.openings.filter(o => o.egress === 'YES').length;
+}
+
+// ═══════════════════════════════════════
+// STEP NAVIGATION
+// ═══════════════════════════════════════
+function goToStep(n) {
+  state.currentStep = n;
+  document.getElementById('step-1').style.display = 'none';
+  document.getElementById('step-processing').style.display = 'none';
+  document.getElementById('step-2').style.display = 'none';
+  document.getElementById('step-3').style.display = 'none';
+  document.getElementById('step-' + n).style.display = '';
+
+  // Update sidebar tabs
+  for (let i = 1; i <= 3; i++) {
+    const tab = document.getElementById('step-tab-' + i);
+    tab.className = 'step-item';
+    if (i < n) tab.classList.add('done');
+    if (i === n) tab.classList.add('active');
+  }
+
+  // Pre-fill step 3
+  if (n === 3) {
+    document.getElementById('gen-count').textContent = state.openings.length + ' opening' + (state.openings.length !== 1 ? 's' : '');
+    document.getElementById('gen-county').textContent = state.county || 'Unknown';
+  }
+}
+
+function goToStepVisual(which) {
+  document.getElementById('step-1').style.display = 'none';
+  document.getElementById('step-processing').style.display = which === 'processing' ? '' : 'none';
+  document.getElementById('step-2').style.display = 'none';
+  document.getElementById('step-3').style.display = 'none';
+  if (which === 'none') {
+    // caller will manually show step-1
+  }
+}
+
+// ═══════════════════════════════════════
+// MODALS
+// ═══════════════════════════════════════
+function openAddressModal() {
+  document.getElementById('editAddress').value = state.address;
+  document.getElementById('editCounty').value = state.county || 'Broward';
+  document.getElementById('addressModal').classList.add('open');
+}
+
+function closeModal(id) {
+  document.getElementById(id).classList.remove('open');
+}
+
+function saveAddress() {
+  state.address = document.getElementById('editAddress').value;
+  state.county = document.getElementById('editCounty').value;
+  document.getElementById('display-address').textContent = state.address || 'Not set';
+  document.getElementById('display-county').innerHTML = renderCountyBadge(state.county);
+  document.getElementById('display-format').textContent =
+    state.county === 'Broward' ? 'Broward County Uniform Schedule' : 'Standard Florida Schedule';
+  document.getElementById('sb-address').textContent = state.address || 'Not found on plan';
+  document.getElementById('sb-county').innerHTML = renderCountyBadge(state.county);
+  closeModal('addressModal');
+}
+
+function addRow() {
+  document.getElementById('new-mark').value = '';
+  document.getElementById('new-width').value = '';
+  document.getElementById('new-height').value = '';
+  document.getElementById('new-room').value = '';
+  document.getElementById('new-notes').value = '';
+  document.getElementById('addRowModal').classList.add('open');
+}
+
+function saveNewRow() {
+  const mark = document.getElementById('new-mark').value.trim().toUpperCase();
+  if (!mark) { alert('Please enter a mark (e.g. W5)'); return; }
+  state.openings.push({
+    mark,
+    type: document.getElementById('new-type').value,
+    width: document.getElementById('new-width').value,
+    height: document.getElementById('new-height').value,
+    room: document.getElementById('new-room').value,
+    egress: document.getElementById('new-egress').value,
+    notes: document.getElementById('new-notes').value,
+    confidence: 'MANUAL'
+  });
+  renderOpeningsTable();
+  updateStats();
+  closeModal('addRowModal');
+}
+
+// ═══════════════════════════════════════
+// GENERATE PDF
+// ═══════════════════════════════════════
+function generateSchedulePDF() {
+  const { jsPDF } = window.jspdf;
+  const doc = new jsPDF({ orientation: 'landscape', unit: 'mm', format: 'letter' });
+
+  const isBroward = state.county === 'Broward';
+  const pageW = 279;
+  const margin = 14;
+  const contentW = pageW - margin * 2;
+
+  const permitNum = document.getElementById('permitNum').value;
+  const contractor = document.getElementById('contractorName').value;
+  const licenseNum = document.getElementById('licenseNum').value;
+  const scheduleDate = document.getElementById('scheduleDate').value;
+
+  // ── Header bar
+  doc.setFillColor(30, 58, 95);
+  doc.rect(0, 0, pageW, 18, 'F');
+  doc.setTextColor(255, 255, 255);
+  doc.setFont('helvetica', 'bold');
+  doc.setFontSize(13);
+  doc.text('WINDOW & DOOR SCHEDULE', margin, 11);
+  doc.setFontSize(8);
+  doc.setFont('helvetica', 'normal');
+  doc.text('TSGC Windows & Doors · thetsgc.com · (954) 324-7787', pageW - margin, 7, { align: 'right' });
+  if (isBroward) {
+    doc.setFillColor(232, 81, 26);
+    doc.rect(pageW - 60, 1, 46, 8, 'F');
+    doc.setTextColor(255,255,255);
+    doc.setFontSize(7);
+    doc.setFont('helvetica', 'bold');
+    doc.text('BROWARD COUNTY FORMAT', pageW - 37, 6.5, { align: 'center' });
+  }
+
+  // ── Job info
+  let y = 23;
+  doc.setTextColor(30, 58, 95);
+  doc.setFont('helvetica', 'bold');
+  doc.setFontSize(8);
+
+  const infoFields = [
+    ['PROJECT ADDRESS:', state.address || '—'],
+    ['COUNTY:', state.county || '—'],
+    ['PERMIT #:', permitNum || '—'],
+    ['CONTRACTOR:', contractor || '—'],
+    ['LICENSE #:', licenseNum || '—'],
+    ['DATE:', scheduleDate || '—'],
+  ];
+
+  let ix = margin;
+  infoFields.forEach(([label, val], i) => {
+    if (i === 3) { ix = margin; y += 7; }
+    doc.setFont('helvetica', 'bold');
+    doc.setTextColor(100, 116, 139);
+    doc.text(label, ix, y);
+    doc.setFont('helvetica', 'normal');
+    doc.setTextColor(30, 41, 59);
+    doc.text(val, ix + 28, y);
+    ix += 85;
+  });
+
+  y += 9;
+
+  // ── Table
+  const cols = isBroward
+    ? ['MARK','QTY','WIDTH','HEIGHT','TYPE','MANUFACTURER','SERIES','APPROVAL #','IMPACT','EGRESS','LOCATION','REMARKS']
+    : ['MARK','QTY','WIDTH','HEIGHT','TYPE','MANUFACTURER','SERIES','APPROVAL #','IMPACT','EGRESS','REMARKS'];
+
+  const colWidths = isBroward
+    ? [14, 10, 16, 16, 20, 32, 28, 22, 16, 16, 28, 32]
+    : [14, 10, 16, 16, 22, 34, 28, 24, 16, 16, 34];
+
+  // Header row
+  doc.setFillColor(30, 58, 95);
+  doc.rect(margin, y, contentW, 8, 'F');
+  doc.setTextColor(255, 255, 255);
+  doc.setFont('helvetica', 'bold');
+  doc.setFontSize(7);
+
+  let cx = margin;
+  cols.forEach((col, i) => {
+    doc.text(col, cx + 1.5, y + 5.5);
+    cx += colWidths[i];
+  });
+  y += 8;
+
+  // Data rows
+  const sorted = [...state.openings].sort((a, b) => {
+    // Sort: W first, then D, then by number
+    const aType = a.type === 'WINDOW' ? 0 : 1;
+    const bType = b.type === 'WINDOW' ? 0 : 1;
+    if (aType !== bType) return aType - bType;
+    return a.mark.localeCompare(b.mark, undefined, { numeric: true });
+  });
+
+  sorted.forEach((o, ri) => {
+    if (ri % 2 === 0) {
+      doc.setFillColor(248, 250, 252);
+      doc.rect(margin, y, contentW, 7, 'F');
+    }
+
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(7);
+    doc.setTextColor(o.type === 'WINDOW' ? 30 : 232, o.type === 'WINDOW' ? 58 : 81, o.type === 'WINDOW' ? 95 : 26);
+
+    let dx = margin;
+    const rowData = isBroward
+      ? [o.mark, '1', o.width||'', o.height||'', o.type, state.manufacturer||'', state.series||'', '', 'YES', o.egress||'NO', o.room||'', o.notes||'']
+      : [o.mark, '1', o.width||'', o.height||'', o.type, state.manufacturer||'', state.series||'', '', 'YES', o.egress||'NO', o.notes||''];
+
+    rowData.forEach((val, ci) => {
+      if (ci > 0) {
+        doc.setFont('helvetica', 'normal');
+        doc.setTextColor(30, 41, 59);
+      }
+      // Truncate to fit
+      const maxChars = Math.floor(colWidths[ci] / 1.8);
+      const display = val.length > maxChars ? val.substring(0, maxChars - 1) + '…' : val;
+      doc.text(display, dx + 1.5, y + 4.8);
+      dx += colWidths[ci];
+    });
+
+    // Egress highlight
+    if (o.egress === 'YES') {
+      const egressCol = isBroward ? 9 : 9;
+      let ex = margin + colWidths.slice(0, egressCol).reduce((a,b) => a+b, 0);
+      doc.setFillColor(254, 226, 226);
+      doc.rect(ex, y, colWidths[egressCol], 7, 'F');
+      doc.setFont('helvetica', 'bold');
+      doc.setTextColor(220, 38, 38);
+      doc.text('YES', ex + 1.5, y + 4.8);
+    }
+
+    // Row border
+    doc.setDrawColor(226, 232, 240);
+    doc.line(margin, y + 7, margin + contentW, y + 7);
+
+    y += 7;
+  });
+
+  // Table border
+  doc.setDrawColor(30, 58, 95);
+  doc.rect(margin, y - (sorted.length * 7) - 8, contentW, (sorted.length * 7) + 8, 'S');
+
+  // ── Footer
+  y += 8;
+  doc.setDrawColor(226, 232, 240);
+  doc.line(margin, y, margin + contentW, y);
+  y += 5;
+  doc.setFont('helvetica', 'normal');
+  doc.setTextColor(148, 163, 184);
+  doc.setFontSize(6.5);
+  doc.text('All products shall be Florida Product Approved or have a valid Notice of Acceptance (NOA). Impact rating per FBC 2020. Installer responsible for field verification of all dimensions.', margin, y);
+  y += 4;
+  doc.text('Generated by TSGC Permit System · TSGC Windows & Doors · tommy@thetsgc.com · (954) 324-7787', margin, y);
+  doc.text(`Page 1 of 1`, pageW - margin, y, { align: 'right' });
+
+  // Save
+  const filename = `TSGC_Schedule_${(state.address || 'Job').replace(/[^a-zA-Z0-9]/g, '_').substring(0,30)}_${new Date().toISOString().slice(0,10)}.pdf`;
+  doc.save(filename);
+}
+
+// ═══════════════════════════════════════
+// GENERATE CSV
+// ═══════════════════════════════════════
+function generateCSV() {
+  const isBroward = state.county === 'Broward';
+  const headers = isBroward
+    ? ['MARK','QTY','WIDTH','HEIGHT','TYPE','MANUFACTURER','SERIES','APPROVAL #','IMPACT','EGRESS','LOCATION','REMARKS']
+    : ['MARK','QTY','WIDTH','HEIGHT','TYPE','MANUFACTURER','SERIES','APPROVAL #','IMPACT','EGRESS','REMARKS'];
+
+  const rows = [headers];
+
+  state.openings.forEach(o => {
+    const row = isBroward
+      ? [o.mark,'1',o.width||'',o.height||'',o.type,state.manufacturer||'',state.series||'','YES',o.egress||'NO',o.room||'',o.notes||'']
+      : [o.mark,'1',o.width||'',o.height||'',o.type,state.manufacturer||'',state.series||'','YES',o.egress||'NO',o.notes||''];
+    rows.push(row);
+  });
+
+  const csv = rows.map(r => r.map(v => `"${v}"`).join(',')).join('\n');
+  const blob = new Blob([csv], { type: 'text/csv' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `TSGC_Schedule_${new Date().toISOString().slice(0,10)}.csv`;
+  a.click();
+}
+
+// ═══════════════════════════════════════
+// RESET
+// ═══════════════════════════════════════
+function startOver() {
+  state = { currentStep: 1, file: null, fileDataUrl: null, address: '', county: '', openings: [], rooms: [], notes: [], manufacturer: '', series: '' };
+  document.getElementById('fileInput').value = '';
+  document.getElementById('filePreview').style.display = 'none';
+  document.getElementById('analyzeBtn').disabled = true;
+  document.getElementById('headerStatus').textContent = 'Ready';
+  document.getElementById('sb-address').textContent = 'Not detected yet';
+  document.getElementById('sb-address').className = 'empty';
+  document.getElementById('sb-county').textContent = '—';
+  document.getElementById('sb-count').textContent = '—';
+  document.getElementById('sb-count').className = 'empty';
+  document.getElementById('sb-egress').textContent = '—';
+  document.getElementById('sb-egress').className = 'empty';
+  goToStep(1);
+}
+</script>
+</body>
+</html>

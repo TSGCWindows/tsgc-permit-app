@@ -1037,7 +1037,14 @@ async function callClaudeAPI() {
       contentBlock = { type: 'image', source: { type: 'base64', media_type: 'image/jpeg', data: base64Data } };
     }
 
-    const systemPrompt = `You are an expert at reading construction floor plans for window and door permit applications in South Florida (Broward, Miami-Dade, Palm Beach, Monroe counties). Respond ONLY with valid JSON, no markdown, no explanation.\n\nReturn this exact JSON structure:\n{\n  "address": "full address or empty string",\n  "county": "Broward|Miami-Dade|Palm Beach|Monroe|Unknown",\n  "openings": [\n    { "mark": "W1", "type": "WINDOW", "width": "3/0", "height": "4/6", "room": "Master Bedroom", "egress": "NO", "notes": "", "confidence": "HIGH" }\n  ],\n  "rooms": ["Master Bedroom", "Kitchen"],\n  "structuralNotes": ["note text"]\n}\n\nCounty rules: Fort Lauderdale/Pembroke Pines/Miramar/Hollywood/Coral Springs/Pompano=Broward; Miami/Hialeah/Coral Gables/Doral/Kendall=Miami-Dade; West Palm Beach/Boca Raton/Delray Beach/Boynton Beach=Palm Beach; Key West/Marathon/Key Largo=Monroe.\n\nExtract ALL window marks (W1,W2...) and door marks (D1,D2...). Only mark egress=YES if the word EGRESS is literally on the plan. Be thorough.
+    const systemPrompt = `You are an expert at reading construction floor plans for window and door permit applications in South Florida (Broward, Miami-Dade, Palm Beach, Monroe counties). Respond ONLY with valid JSON, no markdown, no explanation.\n\nReturn this exact JSON structure:\n{\n  "address": "full address or empty string",\n  "county": "Broward|Miami-Dade|Palm Beach|Monroe|Unknown",\n  "openings": [\n    { "mark": "W1", "type": "WINDOW", "width": "3/0", "height": "4/6", "room": "Master Bedroom", "egress": "NO", "notes": "", "confidence": "HIGH" }\n  ],\n  "rooms": ["Master Bedroom", "Kitchen"],\n  "structuralNotes": ["note text"]\n}\n\nCounty rules: Fort Lauderdale/Pembroke Pines/Miramar/Hollywood/Coral Springs/Pompano=Broward; Miami/Hialeah/Coral Gables/Doral/Kendall=Miami-Dade; West Palm Beach/Boca Raton/Delray Beach/Boynton Beach=Palm Beach; Key West/Marathon/Key Largo=Monroe.\n\nExtract ALL opening marks exactly as written on the plan — do NOT add W or D prefixes.
+- If the plan shows circled numbers like 1, 2, 3 — use exactly 1, 2, 3 as the mark
+- If the plan shows W1, D1 — use exactly W1, D1
+- Use whatever label appears on the plan, nothing more, nothing less
+- Only mark egress=YES if the word "egress" is literally written on the plan near that opening
+- Be thorough — this plan has exactly the number of marks shown, do not create duplicates
+- Each mark number should appear ONCE only — if you see the same number twice, it is the same window, do not duplicate it
+- Grouped marks in one circle (e.g. 14,15,16,17) = create one row per mark number, all with identical specs
 
 CRITICAL FOR DIMENSIONS: Copy dimensions EXACTLY as written on the plan. Do NOT convert or reformat them.
 - Numbers like 74, 53, 37 are whole inch measurements — NEVER convert to feet or fractions like 7/4 or 5/3
@@ -1222,7 +1229,7 @@ function renderOpeningsTable() {
           <option value="YES" ${o.egress === 'YES' ? 'selected' : ''}>Yes</option>
         </select>
       </td>
-      <td class="editable-cell" onclick="editCell(this, ${i}, 'notes')">${o.notes || '—'}</td>
+      <td class="editable-cell" onclick="editCell(this, ${i}, 'notes')">${(o.notes||'').replace(/\bXO\b|\bOX\b|\bXX\b|\bOO\b/gi,'').trim() || '—'}</td>
       <td><span class="confidence ${(o.confidence||'').toLowerCase()}">${o.confidence || '—'}</span></td>
       <td>
         <button class="btn btn-ghost btn-icon btn-sm" onclick="deleteRow(${i})" title="Remove">

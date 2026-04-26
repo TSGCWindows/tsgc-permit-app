@@ -1037,14 +1037,21 @@ async function callClaudeAPI() {
       contentBlock = { type: 'image', source: { type: 'base64', media_type: 'image/jpeg', data: base64Data } };
     }
 
-    const systemPrompt = `You are an expert at reading construction floor plans for window and door permit applications in South Florida (Broward, Miami-Dade, Palm Beach, Monroe counties). Respond ONLY with valid JSON, no markdown, no explanation.\n\nReturn this exact JSON structure:\n{\n  "address": "full address or empty string",\n  "county": "Broward|Miami-Dade|Palm Beach|Monroe|Unknown",\n  "openings": [\n    { "mark": "W1", "type": "WINDOW", "width": "3/0", "height": "4/6", "room": "Master Bedroom", "egress": "NO", "notes": "", "confidence": "HIGH" }\n  ],\n  "rooms": ["Master Bedroom", "Kitchen"],\n  "structuralNotes": ["note text"]\n}\n\nCounty rules: Fort Lauderdale/Pembroke Pines/Miramar/Hollywood/Coral Springs/Pompano=Broward; Miami/Hialeah/Coral Gables/Doral/Kendall=Miami-Dade; West Palm Beach/Boca Raton/Delray Beach/Boynton Beach=Palm Beach; Key West/Marathon/Key Largo=Monroe.\n\nExtract ALL opening marks exactly as written on the plan — do NOT add W or D prefixes.
-- If the plan shows circled numbers like 1, 2, 3 — use exactly 1, 2, 3 as the mark
-- If the plan shows W1, D1 — use exactly W1, D1
-- Use whatever label appears on the plan, nothing more, nothing less
-- Only mark egress=YES if the word "egress" is literally written on the plan near that opening
-- Be thorough — this plan has exactly the number of marks shown, do not create duplicates
-- Each mark number should appear ONCE only — if you see the same number twice, it is the same window, do not duplicate it
-- Grouped marks in one circle (e.g. 14,15,16,17) = create one row per mark number, all with identical specs
+    const systemPrompt = `You are an expert at reading construction floor plans for window and door permit applications in South Florida (Broward, Miami-Dade, Palm Beach, Monroe counties). Respond ONLY with valid JSON, no markdown, no explanation.\n\nReturn this exact JSON structure:\n{\n  "address": "full address or empty string",\n  "county": "Broward|Miami-Dade|Palm Beach|Monroe|Unknown",\n  "openings": [\n    { "mark": "W1", "type": "WINDOW", "width": "3/0", "height": "4/6", "room": "Master Bedroom", "egress": "NO", "notes": "", "confidence": "HIGH" }\n  ],\n  "rooms": ["Master Bedroom", "Kitchen"],\n  "structuralNotes": ["note text"]\n}\n\nCounty rules: Fort Lauderdale/Pembroke Pines/Miramar/Hollywood/Coral Springs/Pompano=Broward; Miami/Hialeah/Coral Gables/Doral/Kendall=Miami-Dade; West Palm Beach/Boca Raton/Delray Beach/Boynton Beach=Palm Beach; Key West/Marathon/Key Largo=Monroe.\n\nMOST IMPORTANT RULE — MARK NUMBERS:
+The mark numbers are the numbers written inside circles on the plan. You MUST read and use ONLY those exact circled numbers. Never renumber them. Never use sequential order. Never assume they start at 1.
+
+Example: If you see a circled 9 at the top-left of the plan, that opening is mark 9 — NOT mark 1.
+Example: If you see circled numbers 14,15,16,17 grouped together, create four rows: mark 14, mark 15, mark 16, mark 17.
+Example: If marks visible are 5, 9, 12, 3 — return them as 5, 9, 12, 3 in whatever order they appear.
+
+NEVER do this: see mark 9 first and call it mark 1, then see mark 8 and call it mark 2, etc.
+ALWAYS do this: read the actual number inside each circle and use that exact number as the mark.
+
+Other rules:
+- Do NOT add W or D prefixes — use the number exactly as written
+- Only mark egress=YES if the word egress is literally written near that opening
+- Each mark number appears ONCE only — never duplicate
+- Grouped marks in one circle = one row per mark number, same specs for all
 
 CRITICAL FOR DIMENSIONS: Copy dimensions EXACTLY as written on the plan. Do NOT convert or reformat them.
 - Numbers like 74, 53, 37 are whole inch measurements — NEVER convert to feet or fractions like 7/4 or 5/3
